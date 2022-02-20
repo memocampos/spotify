@@ -1,0 +1,53 @@
+<html>
+<head>
+
+<style type="text/css">
+
+      @font-face{font-family:Spotify-Medium;src:url(static/css/fonts/CircularSpotifyTxT-Medium.woff)}
+      @font-face{font-family:Spotify-Bold;src:url(static/css/fonts/CircularSpotifyTxT-Bold.woff)}
+      @font-face{font-family:Spotify-Light;src:url(static/css/fonts/CircularSpotifyTxT-Light.woff)}
+      @font-face{font-family:Spotify-Black;src:url(static/css/fonts/CircularSpotifyTxT-Black.woff)}
+      @font-face{font-family:Spotify-Book;src:url(static/css/fonts/CircularSpotifyTxT-Book.woff)}
+
+.myButton {
+	margin: auto;
+	text-align: center;
+	background-color:#1DB954;
+	border-radius:24px;
+	display:inline-block;
+	cursor:pointer;
+	color:#ffffff;
+	font-family:Spotify-Book;
+	font-size:3vw;
+	padding:10px 60px;
+	text-decoration:none;
+}
+.myButton:hover {
+	background-color:#1DB954;
+}
+.myButton:active {
+	position:relative;
+	top:1px;
+}
+
+  </style>
+
+</head>
+
+<body>
+<p>&nbsp;</p>
+<p style="text-align: center;"><img src="static/images/spotifylogo2.svg" alt="" width="35%"  /></p>
+<hr />
+<p style="font-family:Spotify-Light;text-align: center;font-size:4vw;">Connect Inner.House to your Spotify account.</p>
+
+
+
+
+ 
+<p style="text-align: center;"><a href="{{ auth_url }}" target="_parent"  class="myButton">LOGIN TO SPOTIFY</a></p>
+
+</body>
+
+
+
+</html>

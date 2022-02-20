@@ -1,0 +1,339 @@
+<!-- Spotify Addon for Inner.House by Guillermo Campos --> 
+<!-- Spotipy is a lightweight Python library for the Spotify Web API-->
+<html>
+<head>
+  <meta charset="utf-8">
+  <html lang="en-us">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+  <link rel="stylesheet" href="static/css/imgmodal.css" type="text/css">
+  <style type="text/css">
+      @font-face{font-family:Spotify-Medium;src:url(static/css/fonts/CircularSpotifyTxT-Medium.woff)}
+      @font-face{font-family:Spotify-Bold;src:url(static/css/fonts/CircularSpotifyTxT-Bold.woff)}
+      @font-face{font-family:Spotify-Light;src:url(static/css/fonts/CircularSpotifyTxT-Light.woff)}
+      @font-face{font-family:Spotify-Black;src:url(static/css/fonts/CircularSpotifyTxT-Black.woff)}
+      @font-face{font-family:Spotify-Book;src:url(static/css/fonts/CircularSpotifyTxT-Book.woff)}
+      .dropbtn{background-color:#fff;color:#000;padding:16px;font-size:3vw;border:none}
+      .searchbtn{background-color:#fff;color:#000;padding:15px 1px;font-size:3vw;border:none;margin-bottom:4px}
+      .dropup{position:relative;display:inline-block}
+      .dropup-content{display:none;position:absolute;background-color:#fff;min-width:200px;bottom:50px;box-shadow:0 8px 16px 0 rgba(0,0,0,0.2);z-index:1}
+      .dropup-content a{color:#000;padding:9px 10px;text-decoration:none;display:block}
+      .dropup-content a:hover{background-color:#F0F0F0;color:#1DB954;font-family:Spotify-Bold}
+      .dropup:hover .dropup-content{display:block}
+      .dropup:hover .dropbtn{background-color:#fff}
+      .dropdown{position:relative;display:inline-block}
+      .dropdown-content{display:none;position:absolute;right:36px;background-color:#FFF;min-width:220px;box-shadow:0 8px 16px 0 rgba(0,0,0,0.2);z-index:1}
+      .dropdown-content a{color:#000;padding:12px 16px;text-decoration:none;display:block}
+      .dropdown-content a:hover{background-color:#F0F0F0;color:#1DB954;font-family:Spotify-Bold}
+      .dropdown:hover .dropdown-content{display:block}
+      .dropdown:hover .dropbtn{background-color:#fff}
+      @media screen and (-webkit-min-device-pixel-ratio:0) {
+      input[type='range']#SeekRange{overflow:hidden;width:100%;-webkit-appearance:none;background-color:#F8F8F8;margin-top:5px;border-radius:5px}
+      input[type='range']#SeekRange::-webkit-slider-runnable-track{height:5px;-webkit-appearance:none;color:#d3d3d3;margin-top:-1px}
+      input[type='range']#SeekRange::-webkit-slider-thumb{width:1px;-webkit-appearance:none;height:1px;cursor:ew-resize;background:#d3d3d3;box-shadow:-800px 0 0 800px #d3d3d3}
+      input[type='range']#OTHER{overflow:hidden;width:100%;-webkit-appearance:none;background-color:#F8F8F8;margin-top:5px;border-radius:5px}
+      input[type='range']#SeekRange::-webkit-slider-runnable-track{height:5px;-webkit-appearance:none;color:#d3d3d3;margin-top:-1px}
+      input[type='range']#SeekRange::-webkit-slider-thumb{width:1px;-webkit-appearance:none;height:1px;cursor:ew-resize;background:#d3d3d3;box-shadow:-800px 0 0 800px #d3d3d3}
+      }
+      input[type="range"]#SeekRange::-moz-range-progress{background-color:#d3d3d3}
+      input[type="range"]#SeekRange::-moz-range-track{background-color:#F8F8F8}
+      input[type="range"]#SeekRange::-ms-fill-lower{background-color:##d3d3d3}
+      input[type="range"]#SeekRange::-ms-fill-upper{background-color:#F8F8F8}
+      form.searchform input[type=text]{font-size:3vw;margin:0;padding-left:4px;padding-top:2px;paddingbottom:2px;font-family:Spotify-Light;border:0;float:left;width:85%;background:#F0F0F0}
+
+  </style>
+  <script type="text/javascript">
+      var myObj = decodeURIComponent({{ JSONDevices |tojson|safe }});
+      var playlists = decodeURIComponent({{ JSONPlaylists |tojson|safe }});
+      var myObj = JSON.parse(myObj);
+      var playlists = JSON.parse(playlists);
+  </script>
+<meta http-equiv="Refresh" content="{{ Refresh }}">
+<title>Spotify playback</title>    
+</head>
+
+<body>
+  <div>
+
+    <!-- SEARCH -->   
+      <div class="dropdown" style="float:left;left:37px;">      
+        <button class="searchbtn"  type="submit" onsubmit="return false;" onchange="validateform()"> 
+          <form class="searchform" action="/search" name="formsearch" id="formsearch" >
+              <span>
+              <input type="text" placeholder="Search..." name="search" id="formsearchtext" class="searchform w3-round-medium" style="font-family:Spotify-Light ">
+              <i class="fa fa-search" style="font-size:3vw;color:#1DB954;" onclick="validateform()"></i>
+              </span>
+          </form>
+        </button> 
+      </div>
+
+      <script type="text/javascript">
+        
+        function validateform()
+        {
+          x =document.getElementById('formsearchtext').value;
+          if (x!="" && x != null && /^\s+$/.test(x)!=true ) document.getElementById('formsearch').submit();
+        }
+      </script>
+
+      <!-- PLAYLISTS -->                           
+      <div class="dropdown" style="float:right;right:12px;">
+          <p style="text-align:right;"><span class="dropbtn" style=" text-align: right;font-family:Spotify-Light;font-size:3vw">My Playlists <strong><i class="fa fa-bold fa-angle-down" style="font-size:3vw;color:#1DB954;"></i> </span></strong>&nbsp;</p>
+          <div class="dropdown-content w3-round-medium w3-card-2" style="right:5px;" id="myPLAYLIST">
+            <script type="text/javascript">
+             for (let x in playlists.items)
+             {
+                playlist = document.createElement("a");
+                playlist.setAttribute('href', "/set_playlist?playlistURI=" + playlists.items[x].uri);
+                playlist.createTextNode = playlists.items[x].name;
+                playlist.innerText = playlists.items[x].name;;
+                playlist.setAttribute('style', "font-family:Spotify-Light;font-size:3.5vw;vertical-align:middle;");
+                playlist.setAttribute('class', "w3-round-medium");
+                document.getElementById("myPLAYLIST").appendChild(playlist);
+                image = playlists.items[x].images[0].url;
+                playlist.insertAdjacentHTML("afterbegin", '<img src="' + image + '" alt="' + playlists.items[x].description + '" class=" w3-card-2" width="30px" style="vertical-align:middle" onmouseover="bigImg(this)" onmouseout="normalImg(this)" /> &nbsp;');
+              }
+
+              function bigImg(x) {
+                x.style.height = "70px";
+                x.style.width = "70px";
+                x.style.display = "inline";
+                x.style.textAlign = "left"
+                x.style.margin = "2px 2px 2px 2px";
+                playlist.innerText = "";
+              }
+
+              function normalImg(x) {
+                x.style.height = "30px";
+                x.style.width = "30px";
+                x.style.textAlign = "left"
+                x.style.margin = "1px 1px 1px 1px";
+
+                x.style.display = "inline";
+              }
+            </script>
+
+          </div>
+      </div>
+      <p id="space"></p>
+      <!-- Album Cover -->               
+      <p style="width: 100%;text-align: center;">    
+        <a href="{{ AlbumURL }}" title="Open album {{ AlbumName }} &#10; in Spotify " target="_blank" > <img src="{{ AlbumImgURL }}" alt="{{ AlbumName }}" class= "w3-card-2 " width="80%"> </a>
+      </p>
+
+      <div class="center">
+      <!-- SEEKBAR -->   
+        <table style="width: 100%;"> <thead> <th style="width: 100%;text-align: center;" colspan="3" ><input id="SeekRange" class="" min="0" type="range" value="0" oninput="seek(this.value)" onchange="seek(this.value)"/></th> </tr> </thead> <tbody> <tr style="width: 100%;"> <td style="text-align: left;font-family:Spotify-Light;font-size:2.7vw"><span id="time-remain">&nbsp;</span></td> <td style="">&nbsp;</td> <td style=" text-align: right;font-family:Spotify-Light;font-size:2.7vw"><span id="time-total">&nbsp;</span></td> </tr> </tbody> </table>
+
+        <script>
+             var totalseconds=formatsec({{ Duration }});
+             var actualseconds = {{ Progress }};
+
+             document.getElementById("time-total").innerHTML = totalseconds;
+             document.getElementById("time-remain").innerHTML = formatsec(actualseconds);
+             document.getElementById("SeekRange").value = actualseconds;
+
+            function formatsec(seconds) 
+                { 
+                var totalhours = Math.floor(seconds/3600);
+                var totalminutes = Math.floor(seconds / 60) % 60;
+                var totalseconds = seconds % 60;
+                var texttime = "";
+                if (totalseconds<10) {totalseconds = "0" + totalseconds;} 
+                if (totalhours > 0 ) {texttime = totalhours + ":" + totalminutes + ":" + totalseconds;}
+                else {texttime = totalminutes + ":" + totalseconds;}
+                return texttime;
+                }
+
+            function seek(newVal)
+                {
+                let text1 = "/seek_track?position=";
+                let text2 = newVal;
+                let url = text1.concat(" ", text2);
+                document.getElementById("SeekRange").value = newVal;
+                window.open(url,"_self");
+                }    
+
+             window.setInterval(
+             
+             function () 
+                {
+
+                document.getElementById("SeekRange").max = {{ Duration }};
+                document.getElementById("time-remain").innerHTML = formatsec(actualseconds);
+                document.getElementById("SeekRange").value = actualseconds;
+
+                actualseconds = actualseconds + 1;
+                
+
+                if ( "{{ IsPlaying }}"== "False" ) {window.clearInterval(1);} 
+                  
+                }, 1000);
+        </script>
+        <table style="width: 100%;" class="w3-white center">
+          <tbody>
+          <tr>
+              <td style="width: 65%;"> 
+                  <!-- SONG NAME --> 
+                  <p class="center" style="font-family:Spotify-Black;font-size:5vw" ><a href="{{ SongURL }}" title="Open {{ Song }} &#10; in Spotify" target="_blank" style="text-decoration:none;color:#000000">{{ Song }}</a> </p>
+                  <!-- ARTIST NAME -->
+                  <p class="center" style="font-family:Spotify-Medium;font-size:4vw" ><a href="{{ ArtistURL }}" title="Open {{ Artist }} &#10; in Spotify" target="_blank" style="text-decoration:none;color:#000000" >{{ Artist }}</a></p>
+              </td>
+              <td style="width: 35%;">
+                  <table >
+                    <thead>
+                      <tr>
+                        <!-- PLAYBACK CONTROLS -->
+                        <td><a href="/previous_track"><img src="static/images/spotify/Previous-black.png" alt="rewind" id="rewind" style="width:25px;height:25px;" onmouseover="GreyImg(this.id)" onmouseout="NormalImg(this.id)"  onclick="GreenImg(this.id)"></a></td>
+                        <td><a href="/pause"><img  alt="play" style="width:60px;height:60px" id="playback_button" onmouseover="GreyImg(this.id)" onmouseout="NormalImg(this.id)" onclick="GreenImg(this.id)" ></a></td>
+                        <td><a href="/next_track"><img src="static/images/spotify/Next-black.png" alt="next" id="next" style="width:25px;height:25px;" onmouseover="GreyImg(this.id)" onmouseout="NormalImg(this.id)" onclick="GreenImg(this.id)" ></a></td>
+                      </tr>
+                    </thead>
+                  </table>
+                 <script type="text/javascript">
+                    if("{{IsPlaying}}"== "True"){document.getElementById("playback_button").src = "static/images/spotify/Pause-black.png";}  else {document.getElementById("playback_button").src = "static/images/spotify/Play-black.png";}
+
+                      function GreyImg(x) 
+                      {
+                       if (x == "playback_button") 
+                       { 
+                          if("{{IsPlaying}}"== "True"){document.getElementById("playback_button").src = "static/images/spotify/Pause-grey2.png";}  else {document.getElementById("playback_button").src = "static/images/spotify/Play-grey2.png";}
+                        }
+
+                        if (x == "rewind") { document.getElementById("rewind").src = "static/images/spotify/Previous-grey2.png"; }
+                        if (x == "next") { document.getElementById("next").src = "static/images/spotify/Next-grey2.png"; }
+                      }
+
+                      function NormalImg(x) 
+                      {
+                        if (x == "playback_button") 
+                        { 
+                          if("{{IsPlaying}}"== "True"){document.getElementById("playback_button").src = "static/images/spotify/Pause-black.png";}  else {document.getElementById("playback_button").src = "static/images/spotify/Play-black.png";}
+                        }
+
+                        if (x == "rewind") { document.getElementById("rewind").src = "static/images/spotify/Previous-black.png"; }
+                        if (x == "next") { document.getElementById("next").src = "static/images/spotify/Next-black.png"; }
+                      }
+
+                      function GreenImg(x) 
+                      {
+                        if (x == "playback_button") 
+                        { 
+                          if("{{IsPlaying}}"== "True"){document.getElementById("playback_button").src = "static/images/spotify/Pause-green.png";}  else {document.getElementById("playback_button").src = "static/images/spotify/Play-green.png";}
+                        }
+
+                        if (x == "rewind") { document.getElementById("rewind").src = "static/images/spotify/Previous-green.png"; }
+                        if (x == "next") { document.getElementById("next").src = "static/images/spotify/Next-green.png"; }
+                      }
+
+
+
+
+                 </script> 
+              </td>
+          </tr>
+          </tbody>
+        </table>
+        <table>
+            <tbody>
+              <tr>
+              <td style="width: 5%;">&nbsp;</td>
+              <td style="width: 5%;">
+                  <div class="dropup w3-round-medium ">
+                  <button class="dropbtn w3-round-medium "> <span><img id="speaker" width="25px" src="static/images/speaker.png"  ></span></button>
+                  <div class="dropup-content w3-round-medium w3-card-2" id="myDIV">
+                  <!-- Connect to other devices -->
+                  <p><span class="center" style="font-family:Spotify-Medium;font-size:4vw"><strong>Connect to a device</span></p>
+                  <img id="Connect"  style= "display: block;margin-left: auto;margin-right: auto;width: 70%;" src="static/images/connect.png" width="70%"  >
+                  <script type="text/javascript">
+                     for (let x in myObj.devices)
+                     {
+                          device = document.createElement("a");
+                          device.setAttribute('class', "w3-round-medium");
+                          if ( myObj.devices[x].id != myObj.devices[x].name ) device.innerText = myObj.devices[x].name; 
+                          else device.innerText = "Device name not avaliable"; 
+                          device.setAttribute('href', "/transfer_playback?device=" + myObj.devices[x].id);
+                          if (myObj.devices[x].is_active == true) 
+                          {
+
+                            device.insertAdjacentHTML("afterbegin","Playing on: ")
+                            device.setAttribute('style', "font-family:Spotify-Medium;font-size:3vw;color:#1DB954;vertical-align:middle;");
+                          
+                          }
+                          else device.setAttribute('style', "font-family:Spotify-Light;font-size:3.5vw;vertical-align:middle;");
+                          document.getElementById("myDIV").appendChild(device);
+                          switch (myObj.devices[x].type) 
+                          {
+                              case 'Speaker':
+                                image = "static/images/speaker.png";
+                                break;
+                              case 'Computer':
+                                image = "static/images/pc.png";
+                                break;
+                              case 'TV':
+                                 image = "static/images/TV.png";
+                                break;
+                              case 'Tablet':
+                               image = "static/images/tablet.png";
+                              break;
+                              case 'Game_console':
+                               image = "static/images/game.png";
+                              break;
+                              case 'Automobile':
+                               image = "static/images/car.png";
+                              break;                  
+                            }
+                          device.insertAdjacentHTML("afterbegin", '<img src="' + image + '" alt="speaker" width="25px" style="vertical-align:middle" /> &nbsp;');
+                      }
+                    </script>
+                  </div>
+                </div>             
+              </td>
+              <!-- VOLUME ICON -->
+              <td style="width: 5%;"><img id="Volume" src="static/images/Mid-Vol.png" width="25" height="25" onclick="showVal(0);speakerimage(0);">
+              </td>
+              <td style="width: 80%;">
+                <div class="slidecontainer">
+                  <!-- COLUME RANGE BAR -->
+                  <input type="range" min="0" max="100" value="{{ Volume }}" class="slider w3-card-2" id="SeekRange2"  onclick="showVal(this.value)"onchange="showVal(this.value)">              
+                </div>
+              </td>
+              <td style="width: 5%;color: white;"><p><span id="demo"></span></p>
+              </td>
+          </tr>
+        </tbody>
+      </table>
+         
+      <script>                           
+        var slider2 = document.getElementById("SeekRange2");
+        var output = document.getElementById("demo");
+        output.innerHTML = slider2.value;
+        speakerimage(slider2.value);
+
+        slider2.oninput = function() 
+        {
+          output.innerHTML = this.value;
+          speakerimage(output.innerHTML);
+
+        }
+
+        function speakerimage(vol_value)
+        {
+          if (vol_value==0) { document.getElementById("Volume").src = "static/images/Muted.png";}
+          if (vol_value<20 && vol_value>1) { document.getElementById("Volume").src = "static/images/Low-Vol.png";}
+          if (vol_value<80 && vol_value>=20) { document.getElementById("Volume").src = "static/images/Mid-Vol.png";}
+          if (vol_value<=100 && vol_value>=80) { document.getElementById("Volume").src = "static/images/Full-Vol.png";}
+        }
+
+        function showVal(newVal)
+        {
+          speakerimage(newVal);
+          let text1 = "/set_volume?volume=";
+          let text2 = newVal;
+          let url = text1.concat(" ", text2);
+          window.open(url,"_self");
+        }
+        </script>
+  </div>
+</body> 
+</html>

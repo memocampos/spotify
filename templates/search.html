@@ -1,0 +1,172 @@
+</!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8">
+	<link rel="stylesheet" href="https://pro.fontawesome.com/releases/v5.10.0/css/all.css" integrity="sha384-AYmEC3Yw5cVb3ZcuHtOA93w35dYTsvhLPVnYs9eStHfGJvOvKxVfELGroGkvsg+p" crossorigin="anonymous"/>
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Search results</title>
+	<style>
+		*{font-family:Spotify-Light,Verdana,sans-serif}
+		@font-face{font-family:Spotify-Medium;src:url(static/css/fonts/CircularSpotifyTxT-Medium.woff)}
+		@font-face{font-family:Spotify-Bold;src:url(static/css/fonts/CircularSpotifyTxT-Bold.woff)}
+		@font-face{font-family:Spotify-Light;src:url(static/css/fonts/CircularSpotifyTxT-Light.woff)}
+		@font-face{font-family:Spotify-Black;src:url(static/css/fonts/CircularSpotifyTxT-Black.woff)}
+		@font-face{font-family:Spotify-Book;src:url(static/css/fonts/CircularSpotifyTxT-Book.woff)}
+		.tracks{background-color:#F0F0F0;border:none;color:#000;padding:2px 4px;text-align:left;font-family:Spotify-Medium;font-size:2vw;width:100%;margin:1px;opacity:.6;transition:.3s}
+		.tracks:hover{opacity:1}
+		div.scrollmenu{background-color:#F8F8F8;overflow:auto;white-space:nowrap}
+		div.scrollmenu a{transition:.3s;display:inline-block;color:#000;text-align:center;padding:10px;text-decoration:none;opacity:1;margin:1px}
+		div.scrollmenu a:hover{background-color:#F8F8F8;color:#1DB954;opacity:1;padding:10px;margin:0}
+		.center{display:block;margin-left:auto;margin-right:auto;width:100%}
+		.innerhouse-shadow:{box-shadow:1px 1px 5px 1px #353535}
+		.innerhouse-shadow-hover:hover{box-shadow:1px 1px 5px 1px #353535}
+		.round-corners{border-radius:4px}
+	</style>
+
+	<script type="text/javascript">
+			var searchresults = {{ searchresults }};
+			if (searchresults == 0) 
+				{ 
+					console.log("No hay resultados");
+					searchstring = decodeURIComponent("{{ searchstring }})");
+					alert("Search of " + searchstring + " return no results on Spotify." );
+					window.open("/play","_self");
+				}
+			else
+			{	
+				
+				var NumberOfTracks = {{NumberOfTracks}};
+				if (NumberOfTracks > 0 ) 
+				{
+					var JSONTrack = decodeURIComponent({{ JSONTrack |tojson|safe }});
+					var JSONTrack = JSON.parse(JSONTrack);
+					console.log(JSONTrack);
+				}
+
+				var NumberOfALbums = {{NumberOfAlbums}};
+				if (NumberOfALbums > 0 ) 
+				{
+					var JSONAlbum = decodeURIComponent({{ JSONAlbum |tojson|safe }});
+					var JSONAlbum = JSON.parse(JSONAlbum);
+					console.log(JSONAlbum);
+				}
+
+				var NumberOfPlaylists = {{NumberOfPlaylists}};
+				if (NumberOfPlaylists > 0 ) 
+				{
+					var JSONPlaylist = decodeURIComponent({{ JSONPlaylist |tojson|safe }});
+					var JSONPlaylist = JSON.parse(JSONPlaylist);
+					console.log(JSONPlaylist);
+				}
+			}
+
+			function strsize(str, size)
+			{
+				if(str.length > size)
+				{
+					str = str.slice(0, size-3);
+					str = str.concat("...");
+					return str;
+				}
+				else if (str.length == 0) {return '&nbsp;';}
+				else return str;		
+			}
+  </script>
+</head>
+
+<body>
+	<p style="text-align:left;">
+		<a href="/play" title="Return to playback" target="_self" style="text-decoration: none;" > 
+			<strong><i class="fas fa-arrow-left" style="font-size:2.5vw;color:#1DB954;"></i> </span></strong>
+			<span style=" text-align: right;font-family:Spotify-Medium;font-size:2.8vw;color:#1DB954">Return to <i class="fas fa-play" style="font-size:1.7vw;color:#1DB954;"></i> playback
+	 	</a>
+	</p>
+
+	<div class="center" style="font-family:Spotify-Medium;font-size:4vw;text-align: center;" >
+		Search results &quot;<span style="color: black;font-family:Spotify-Book;font-size:4.1vw">{{ searchstring }}</span>&quot;
+	</div>
+
+	<div>
+		<script type="text/javascript">
+
+			if (NumberOfTracks > 0 ) 
+			{
+				document.write('<span class="center" style="font-family:Spotify-Bold;font-size:4.3vw;text-align: left;"> Songs </span>');
+				//Static content ---------------------------------------------------------
+				document.write("<table border='0' width='100%'>");
+				//Dynamic content --------------------------------------------------------
+				var column = 0;
+				var row = "";
+				for(var i=0; i<NumberOfTracks;i++)
+				{
+					if (column == 0) {document.write("<tr>");}
+
+					row = ' <td style="width: 50%; text-align: center;"><button class="tracks round-corners innerhouse-shadow-hover">\
+							<a style="text-decoration: none;" href="/set_playback?URI=' + JSONTrack[i].uri + '" onmouseover="bigImg(' + JSONTrack[i].id + ')" onmouseout="normalImg(' + JSONTrack[i].id + ')"><table><tbody><tr><div>\
+		         			<td><img src = "static/images/spotify/Play-black.png" id="'+ JSONTrack[i].id +'" class="" alt="Play this song" style="width: 3.5vw;vertical-align: top" ></td>\
+		         			<td><span class="center" style="font-family:Spotify-Medium;font-size:2.7vw;margin: 1px 2px;">' + strsize(JSONTrack[i].track_name,60) +  '</span>\
+		         			<span class="center" style="font-family:Spotify-Light;font-size:2.5vw;margin: 0px 2px;">' + strsize(JSONTrack[i].artist_name,40) + '</span></td>\
+		 					</div></tr></tbody></table></a></button></td>';
+		 			document.write(row);		
+		 			column = column + 1;
+		 			if (column > 1) {column=0;row="";document.write('</tr>');}
+
+				}
+				//Static content  --------------------------------------------------------
+				document.write("</table>")
+
+				function bigImg(x) {
+					x = document.getElementById(x);
+				  x.src = "static/images/spotify/Play-green.png";
+					}	
+
+				function normalImg(x) {
+					x = document.getElementById(x);
+				  x.src = "static/images/spotify/Play-black.png";
+					}
+			}	
+		</script>	
+	</div>
+
+	<div>
+		<script type="text/javascript">
+			if (NumberOfALbums > 0 ) 
+			{
+				document.write('<span class="center" style="font-family:Spotify-Bold;font-size:4.3vw;text-align: left;margin: 4px 2px;"> Albums <i class="fas fa-arrow-right" style="font-size:3vw;"></i></span>');
+				//Static content ---------------------------------------------------------
+				document.write("<div class='scrollmenu round-corners'>");
+				//Dynamic content --------------------------------------------------------
+
+				for(var i=0; i<NumberOfALbums;i++)
+				{
+
+					row = '<a style="font-family:Spotify-Medium;font-size:2.3vw" href="/set_playlist?playlistURI=' + JSONAlbum[i].uri + '" class="innerhouse-shadow-hover round-corners"><img src="' + JSONAlbum[i].album_cover_image + '" style="vertical-align:text-top" width="100px" height="100px"><span class="center" style="font-family:Spotify-Bold;font-size:2.8vw;margin: 4px 0px;"> ' + strsize(JSONAlbum[i].album_name,30)  + '</span><span class="center" style="font-family:Spotify-Light;font-size:2.8vw;margin: 0px 2px; ">' + strsize(JSONAlbum[i].artist_name,38)  + '</span> </a>';
+					document.write(row);
+				}
+				//Static content  --------------------------------------------------------
+				document.write("</div>")
+			}	
+		</script>
+	</div>
+
+	<div>
+		<script type="text/javascript">
+			if (NumberOfPlaylists > 0 ) 
+			{
+				document.write('<span class="center" style="font-family:Spotify-Bold;font-size:4.3vw;text-align: left;margin: 4px 2px;"> Playlists <i class="fas fa-arrow-right" style="font-size:3vw;"></i></span>');
+				//Static content ---------------------------------------------------------
+				document.write("<div class='scrollmenu round-corners'>");
+				//Dynamic content --------------------------------------------------------
+
+				for(var i=0; i<NumberOfPlaylists;i++)
+				{
+					row = '<a style="font-family:Spotify-Medium;font-size:2.3vw" href="/set_playlist?playlistURI=' + JSONPlaylist[i].uri + '" class="innerhouse-shadow-hover round-corners" ><img src="' + JSONPlaylist[i].album_cover_image + '"   style="vertical-align:text-top" width="60px" height="60px"><span class="center" style="font-family:Spotify-Bold;font-size:2.7vw;margin: 4px 0px;text-align: center"> ' + strsize(JSONPlaylist[i].playlist_name,30)  + '</span></a>';
+					document.write(row);
+				}
+				//Static content  --------------------------------------------------------
+				document.write("</div>")
+			}	
+		</script>
+	</div>
+</body>
+</html>
