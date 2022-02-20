@@ -12,9 +12,9 @@ import datetime
 
 load_dotenv()
 
-CLIENT_ID = os.environ["SPOTIPY_CLIENT_ID"] = str(os.getenv("SPOTIPY_CLIENT_ID"))
-CLIENT_SECRET = os.environ["SPOTIPY_CLIENT_SECRET"] = str(os.getenv("SPOTIPY_CLIENT_SECRET"))
-REDIRECT_URI = os.environ["SPOTIPY_REDIRECT_URI"] = str(os.getenv("SPOTIPY_REDIRECT_URI"))
+CLIENT_ID = os.environ["SPOTIPY_CLIENT_ID"] = str(os.getenv("CLIENT_ID"))
+CLIENT_SECRET = os.environ["SPOTIPY_CLIENT_SECRET"] = str(os.getenv("CLIENT_SECRET"))
+REDIRECT_URI = os.environ["SPOTIPY_REDIRECT_URI"] = str(os.getenv("REDIRECT_URI"))
 
 
 application = Flask(__name__)
@@ -688,6 +688,8 @@ def search():
 
 
 if __name__ == "__main__":
+    print(CLIENT_ID)
+    print(os.getenv("SPOTIPY_CLIENT_ID"))
     application.run(
         threaded=True,
         port=8080
