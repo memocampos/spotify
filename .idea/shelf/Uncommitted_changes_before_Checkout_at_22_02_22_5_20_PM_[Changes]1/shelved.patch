@@ -1,0 +1,68 @@
+Index: templates/error.html
+===================================================================
+diff --git a/templates/error.html b/templates/error.html
+deleted file mode 100644
+--- a/templates/error.html	
++++ /dev/null	
+@@ -1,60 +0,0 @@
+-<html>
+-<head>
+-<link rel="stylesheet" href="https://pro.fontawesome.com/releases/v5.10.0/css/all.css" integrity="sha384-AYmEC3Yw5cVb3ZcuHtOA93w35dYTsvhLPVnYs9eStHfGJvOvKxVfELGroGkvsg+p" crossorigin="anonymous"/>
+-
+-<style type="text/css">
+-
+-      @font-face{font-family:Spotify-Medium;src:url(static/css/fonts/CircularSpotifyTxT-Medium.woff)}
+-      @font-face{font-family:Spotify-Bold;src:url(static/css/fonts/CircularSpotifyTxT-Bold.woff)}
+-      @font-face{font-family:Spotify-Light;src:url(static/css/fonts/CircularSpotifyTxT-Light.woff)}
+-      @font-face{font-family:Spotify-Black;src:url(static/css/fonts/CircularSpotifyTxT-Black.woff)}
+-      @font-face{font-family:Spotify-Book;src:url(static/css/fonts/CircularSpotifyTxT-Book.woff)}
+-
+-.myButton {
+-	margin: auto;
+-	text-align: center;
+-	background-color:#1DB954;
+-	border-radius:24px;
+-	display:inline-block;
+-	cursor:pointer;
+-	color:#ffffff;
+-	font-family:Spotify-Book;
+-	font-size:3vw;
+-	padding:10px 60px;
+-	text-decoration:none;
+-}
+-.myButton:hover {
+-	background-color:#1DB954;
+-}
+-.myButton:active {
+-	position:relative;
+-	top:1px;
+-}
+-
+-  </style>
+-
+-</head>
+-
+-<body>
+-<p>&nbsp;</p>
+-
+-<p style="text-align: center;"><img src="static/images/spotifylogo2.svg" alt="" width="35%"  /></p>
+-<hr />
+-		<a href="/play" title="Return to playback" target="_self" style="text-decoration: none;" > 
+-			<strong><i class="fas fa-arrow-left" style="font-size:2.5vw;color:#1DB954;"></i> </span></strong>
+-			<span style=" text-align: right;font-family:Spotify-Medium;font-size:2.8vw;color:#1DB954">Return to <i class="fas fa-play" style="font-size:1.7vw;color:#1DB954;"></i> playback
+-	 	</a>
+-<p style="font-family:Spotify-Medium;text-align: center;font-size:4vw;">Error:</p>
+-<p style="font-family:Spotify-Light;text-align: center;font-size:4vw;">{{ error }}</p>
+-
+-
+-
+-
+- 
+-
+-
+-</body>
+-
+-
+-
+-</html>
+\ No newline at end of file
