@@ -1,3 +1,5 @@
+#<!-- Spotify Addon for Inner.House by Guillermo Campos -->  <!-- Spotipy is a lightweight Python library for the Spotify Web API-->
+
 import os
 from flask import Flask, session, request, redirect, render_template
 from flask_session import Session
