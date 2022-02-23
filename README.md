@@ -19,9 +19,9 @@ by **Guillermo Campos**
 
 - Create `.env` file and type in your Spotify  configurations:
 ```properties
-#CLIENT_ID =  "xxxxxxxxxxxxxxxx"
-#CLIENT_SECRET =  "xxxxxxxxxxxxxxxx"
-#REDIRECT_URI = "http://127.0.0.1:8080"
+CLIENT_ID =  "xxxxxxxxxxxxxxxx"
+CLIENT_SECRET =  "xxxxxxxxxxxxxxxx"
+REDIRECT_URI = "http://127.0.0.1:8080"
 ```
 
 
