@@ -1,0 +1,728 @@
+Index: main.py
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>import os\nfrom flask import Flask, session, request, redirect, render_template\nfrom flask_session import Session\nfrom spotipy.oauth2 import SpotifyOAuth\nfrom dotenv import load_dotenv\nimport spotipy\nimport uuid\nimport pprint\nimport time\nimport json\nimport datetime\n\nload_dotenv()\n\nCLIENT_ID = os.environ[\"SPOTIPY_CLIENT_ID\"] = str(os.getenv(\"CLIENT_ID\"))\nCLIENT_SECRET = os.environ[\"SPOTIPY_CLIENT_SECRET\"] = str(os.getenv(\"CLIENT_SECRET\"))\nREDIRECT_URI = os.environ[\"SPOTIPY_REDIRECT_URI\"] = str(os.getenv(\"REDIRECT_URI\"))\n\n\napplication = Flask(__name__)\napplication.config[\"SECRET_KEY\"] = os.urandom(64)\napplication.config[\"SESSION_TYPE\"] = \"filesystem\"\napplication.config[\"SESSION_FILE_DIR\"] = \"./.flask_session/\"\nSession(application)\n\ncaches_folder = \"./.spotify_caches/\"\nif not os.path.exists(caches_folder):\n    os.makedirs(caches_folder)\n\n\ndef session_cache_path():\n    return caches_folder + session.get(\"uuid\")\n\n\nclass get_devices:\n    def __init__(self, res):\n        self.strJSON = json.dumps(\n            res, ensure_ascii=False, sort_keys=True, indent=2, separators=(\",\", \": \")\n        )\n        self.active_device_id = None\n        self.active_device_volume_percent = None\n        self.active_device_name = None\n        self.active_device_type = None\n\n        for i in res[\"devices\"]:\n            self.device_id = i[\"id\"]\n            self.device_volume_percent = i[\"volume_percent\"]\n            self.device_name = i[\"name\"]\n            self.device_type = i[\"type\"]\n\n            if i[\"is_active\"] == True:\n                self.active_device_id = i[\"id\"]\n                self.active_device_volume_percent = i[\"volume_percent\"]\n                self.active_device_name = i[\"name\"]\n                self.active_device_type = i[\"type\"]\n\n\nclass currently_playing:\n    def __init__(self, res, playlists):\n        track = res\n        playlists = playlists\n        if not track is None:\n            self.timestamp = track[\"timestamp\"]\n            self.progress_ms = track[\"progress_ms\"]\n            self.duration_ms = track[\"item\"][\"duration_ms\"]\n            self.is_playing = track[\"is_playing\"]\n            self.resuming = track[\"actions\"][\"disallows\"]\n            self.artist = track[\"item\"][\"album\"][\"artists\"][0][\"name\"]\n            self.artist_URL = track[\"item\"][\"album\"][\"artists\"][0][\"external_urls\"][\n                \"spotify\"\n            ]\n            self.album_URL = track[\"item\"][\"album\"][\"external_urls\"][\"spotify\"]\n            self.song_URL = track[\"item\"][\"external_urls\"][\"spotify\"]\n            self.album = track[\"item\"][\"album\"][\"name\"]\n            self.song = track[\"item\"][\"name\"]\n            self.album_image_big = track[\"item\"][\"album\"][\"images\"][0][\"url\"]\n            self.album_image_medium = track[\"item\"][\"album\"][\"images\"][1][\"url\"]\n            self.album_image_small = track[\"item\"][\"album\"][\"images\"][2][\"url\"]\n            self.playlists = json.dumps(\n                playlists,\n                ensure_ascii=False,\n                sort_keys=True,\n                indent=2,\n                separators=(\",\", \": \"),\n            )\n\n\n@application.route(\"/\")\ndef index():\n    if not session.get(\"uuid\"):\n        # Step 1. Visitor is unknown, give random ID\n        session[\"uuid\"] = str(uuid.uuid4())\n\n    cache_handler = spotipy.cache_handler.CacheFileHandler(\n        cache_path=session_cache_path()\n    )\n    auth_manager = spotipy.oauth2.SpotifyOAuth(\n        scope=\"user-read-currently-playing playlist-modify-private,user-read-playback-state,user-modify-playback-state\",\n        cache_handler=cache_handler,\n        show_dialog=True,\n    )\n\n    if request.args.get(\"code\"):\n        # Step 3. Being redirected from Spotify auth page\n        auth_manager.get_access_token(request.args.get(\"code\"))\n        return redirect(\"/\")\n\n    if not auth_manager.validate_token(cache_handler.get_cached_token()):\n        # Step 2. Display sign in link when no token\n        auth_url = auth_manager.get_authorize_url()\n        return f'<h2><a href=\"{auth_url}\">Sign in</a></h2>'\n\n    # Step 4. Signed in, display data\n    spotify = spotipy.Spotify(auth_manager=auth_manager)\n    return (\n        f'<h2>Hi {spotify.me()[\"display_name\"]}, '\n        f'<small><a href=\"/sign_out\">[sign out]<a/></small></h2>'\n        f'<a href=\"/playlists\">my playlists</a> | '\n        f'<a href=\"/currently_playing2\">currently playing</a> | '\n        f'<a href=\"/current_user\">me</a>'\n    )\n\n\n@application.route(\"/sign_out\")\ndef sign_out():\n    try:\n        # Remove the CACHE file (.cache-test) so that a new user can authorize.\n        os.remove(session_cache_path())\n        session.clear()\n    except OSError as e:\n        print(\"Error: %s - %s.\" % (e.filename, e.strerror))\n    return redirect(\"/\")\n\n\n@application.route(\"/playlists\")\ndef playlists():\n    cache_handler = spotipy.cache_handler.CacheFileHandler(\n        cache_path=session_cache_path()\n    )\n    auth_manager = spotipy.oauth2.SpotifyOAuth(cache_handler=cache_handler)\n    if not auth_manager.validate_token(cache_handler.get_cached_token()):\n        return redirect(\"/\")\n\n    spotify = spotipy.Spotify(auth_manager=auth_manager)\n    return spotify.current_user_playlists()\n\n\n@application.route(\"/currently_playing2\")\ndef currently_playing2():\n    cache_handler = spotipy.cache_handler.CacheFileHandler(\n        cache_path=session_cache_path()\n    )\n    auth_manager = spotipy.oauth2.SpotifyOAuth(cache_handler=cache_handler)\n    if not auth_manager.validate_token(cache_handler.get_cached_token()):\n        return redirect(\"/\")\n    spotify = spotipy.Spotify(auth_manager=auth_manager)\n    track = spotify.current_user_playing_track()\n    if not track is None:\n        return track\n    return \"No track currently playing.\"\n\n\n@application.route(\"/current_user\")\ndef current_user():\n    cache_handler = spotipy.cache_handler.CacheFileHandler(\n        cache_path=session_cache_path()\n    )\n    auth_manager = spotipy.oauth2.SpotifyOAuth(cache_handler=cache_handler)\n    if not auth_manager.validate_token(cache_handler.get_cached_token()):\n        return redirect(\"/\")\n    spotify = spotipy.Spotify(auth_manager=auth_manager)\n    return spotify.current_user()\n\n\n@application.route(\"/index.html\")\ndef index_html():\n    return render_template(\"index.html\")\n\n\n@application.route(\"/play\")\ndef play():\n    # Step 1. Visitor is unknown, give random ID\n    if not session.get(\"uuid\"):\n        # Step 1. Visitor is unknown, give random ID\n        session[\"uuid\"] = str(uuid.uuid4())\n    print(\"USER  ID \" + session[\"uuid\"])\n\n    cache_handler = spotipy.cache_handler.CacheFileHandler(\n        cache_path=session_cache_path()\n    )\n    auth_manager = spotipy.oauth2.SpotifyOAuth(\n        scope=\"user-read-currently-playing playlist-modify-private,user-read-playback-state,user-modify-playback-state\",\n        cache_handler=cache_handler,\n        show_dialog=True,\n    )\n    if request.args.get(\"code\"):\n        # Step 3. Being redirected from Spotify auth page\n        auth_manager.get_cached_token(request.args.get(\"code\"))\n        return redirect(\"/play\")\n\n    if not auth_manager.validate_token(cache_handler.get_cached_token()):\n        # Step 2. Display sign in link when no token\n        print(\"NOT AUTH\")\n        auth_url = auth_manager.get_authorize_url()\n        #return f'<h2><a href=\"{auth_url}\">Sign in</a></h2>'\n\n        return render_template(\"authorize.html\",auth_url=auth_url)\n    sp = spotipy.Spotify(auth_manager=auth_manager)\n    track = sp.current_user_playing_track()\n\n    if not track is None:\n        print(\"si hay track\")\n        device = get_devices(sp.devices())\n        print(\"Aqui\", str(sp.current_user_playing_track()))\n\n        playing = currently_playing(sp.current_user_playing_track(),\n            sp.current_user_playlists(limit=50, offset=0))\n        if hasattr(device, \"active_device_volume_percent\"):\n            volume = device.active_device_volume_percent\n        else:\n            volume = 100\n        print(playing.duration_ms)\n        print(playing.progress_ms)\n        remaining_s = int((playing.duration_ms - playing.progress_ms) / 1000)\n        if playing.is_playing == False:\n            remaining_s = 3600\n\n        return render_template(\n            \"spotify.html\",\n            AlbumImgURL=playing.album_image_big,\n            AlbumURL=playing.album_URL,\n            AlbumName=playing.album,\n            Artist=playing.artist,\n            ArtistURL=playing.artist_URL,\n            Song=playing.song,\n            SongURL=playing.song_URL,\n            Timestamp=playing.timestamp,\n            Duration=int(playing.duration_ms / 1000),\n            Progress=int(playing.progress_ms / 1000),\n            IsPlaying=playing.is_playing,\n            Resuming=playing.resuming,\n            Volume=volume,\n            Refresh=remaining_s,\n            JSONDevices=device.strJSON,\n            JSONPlaylists=playing.playlists,\n        )\n    else:\n        return render_template(\"noplaying.html\")\n\n\n@application.route(\"/next_track\")\ndef next_track():\n    cache_handler = spotipy.cache_handler.CacheFileHandler(\n        cache_path=session_cache_path()\n    )\n    auth_manager = spotipy.oauth2.SpotifyOAuth(\n        scope=\"user-read-currently-playing playlist-modify-private,user-read-playback-state,user-modify-playback-state\",\n        cache_handler=cache_handler,\n        show_dialog=True,\n    )\n    sp = spotipy.Spotify(auth_manager=auth_manager)\n    track = sp.current_user_playing_track()\n    if not track is None:\n        device = get_devices(sp.devices())\n        print(device.device_id)\n        try:\n            sp.next_track(device_id=False)\n        except Exception as e:\n            return render_template(\"error.html\", error=str(e.args[2]))\n\n            #return str(e.args[2])\n        #except:\n         #   return \"Spotify Premium required\"\n\n        return redirect(\"/play\")\n    return render_template(\"noplaying.html\")\n\n\n@application.route('/previous_track')\ndef previous_track():\n    cache_handler = spotipy.cache_handler.CacheFileHandler(\n        cache_path=session_cache_path()\n    )\n    auth_manager = spotipy.oauth2.SpotifyOAuth(\n        scope=\"user-read-currently-playing playlist-modify-private,user-read-playback-state,user-modify-playback-state\",\n        cache_handler=cache_handler,\n        show_dialog=True,\n    )\n    sp = spotipy.Spotify(auth_manager=auth_manager)\n    track = sp.current_user_playing_track()\n    if not track is None:\n        device = get_devices(sp.devices())\n        print(device.device_id)\n        try:\n            sp.previous_track(device_id=False)\n        except Exception as e:\n            return render_template(\"error.html\", error=str(e.args[2]))\n        return redirect(\"/play\")\n    return render_template(\"noplaying.html\")\n\n\n@application.route('/pause')\ndef pause():\n    cache_handler = spotipy.cache_handler.CacheFileHandler(\n        cache_path=session_cache_path()\n    )\n    auth_manager = spotipy.oauth2.SpotifyOAuth(\n        scope=\"user-read-currently-playing playlist-modify-private,user-read-playback-state,user-modify-playback-state\",\n        cache_handler=cache_handler,\n        show_dialog=True,\n    )\n    sp = spotipy.Spotify(auth_manager=auth_manager)\n    track = sp.current_user_playing_track()\n    if not track is None:\n        if track['is_playing'] == True:\n            try:\n                sp.pause_playback(device_id=False)\n            except Exception as e:\n                return render_template(\"error.html\", error=str(e.args[2]))\n\n\n\n        else:\n            try:\n                sp.start_playback(device_id=False)\n            except Exception as e:\n                return render_template(\"error.html\", error=str(e.args[2]))\n        return redirect('/play')\n    return \"No track currently playing.\"\n\n@application.route('/volume_up')\ndef volume_up():\n    cache_handler = spotipy.cache_handler.CacheFileHandler(\n        cache_path=session_cache_path()\n    )\n    auth_manager = spotipy.oauth2.SpotifyOAuth(\n        scope=\"user-read-currently-playing playlist-modify-private,user-read-playback-state,user-modify-playback-state\",\n        cache_handler=cache_handler,\n        show_dialog=True,\n    )\n    sp = spotipy.Spotify(auth_manager=auth_manager)\n    track = sp.current_user_playing_track()\n    device = get_devices(sp.devices())\n\n    if not track is None:\n        CurrentVolume = device.active_device_volume_percent + 10\n        try:\n            sp.volume(CurrentVolume, device.active_device_id)\n        except Exception as e:\n            return render_template(\"error.html\", error=str(e.args[2]))\n        print(CurrentVolume)\n        return redirect('/play')\n    else:\n        return \"No track is currently playing\"\n\n\n@application.route('/volume_down')\ndef volume_down():\n    cache_handler = spotipy.cache_handler.CacheFileHandler(\n        cache_path=session_cache_path()\n    )\n    auth_manager = spotipy.oauth2.SpotifyOAuth(\n        scope=\"user-read-currently-playing playlist-modify-private,user-read-playback-state,user-modify-playback-state\",\n        cache_handler=cache_handler,\n        show_dialog=True,\n    )\n    sp = spotipy.Spotify(auth_manager=auth_manager)\n    track = sp.current_user_playing_track()\n    device = get_devices(sp.devices())\n\n    if not track is None:\n        CurrentVolume = device.active_device_volume_percent - 10\n        try:\n            sp.volume(CurrentVolume, device.active_device_id)\n        except Exception as e:\n            return render_template(\"error.html\", error=str(e.args[2]))\n\n\n        print(CurrentVolume)\n        return redirect('/play')\n    else:\n        return \"No track is currently playing\"\n\n\n@application.route('/set_volume')\ndef set_volume():\n    volume = int(request.args.get('volume'))\n    print(\"setting volume: \" + str(volume))\n    cache_handler = spotipy.cache_handler.CacheFileHandler(\n        cache_path=session_cache_path()\n    )\n    auth_manager = spotipy.oauth2.SpotifyOAuth(\n        scope=\"user-read-currently-playing playlist-modify-private,user-read-playback-state,user-modify-playback-state\",\n        cache_handler=cache_handler,\n        show_dialog=True,\n    )\n    sp = spotipy.Spotify(auth_manager=auth_manager)\n    track = sp.current_user_playing_track()\n    device = get_devices(sp.devices())\n\n    if not track is None:\n        print(\"setting volume: \" + str(volume) + \" on device: \" + str(device.active_device_name))\n        try:\n            sp.volume(volume, device.active_device_id)\n        except Exception as e:\n            return render_template(\"error.html\", error=str(e.args[2]))\n        time.sleep(1)\n        return redirect('/play')\n    else:\n        return redirect('/play')\n\n\n@application.route('/seek_track')\ndef seek_track():\n    position_ms = int(request.args.get('position'))\n    position_ms = position_ms * 1000\n    print(position_ms)\n    cache_handler = spotipy.cache_handler.CacheFileHandler(\n        cache_path=session_cache_path()\n    )\n    auth_manager = spotipy.oauth2.SpotifyOAuth(\n        scope=\"user-read-currently-playing playlist-modify-private,user-read-playback-state,user-modify-playback-state\",\n        cache_handler=cache_handler,\n        show_dialog=True,\n    )\n    sp = spotipy.Spotify(auth_manager=auth_manager)\n    track = sp.current_user_playing_track()\n    device = get_devices(sp.devices())\n\n    if not track is None:\n\n        try:\n            sp.seek_track(position_ms, device.active_device_id)\n\n        except Exception as e:\n            return render_template(\"error.html\", error=str(e.args[2]))\n        time.sleep(1)\n        return redirect('/play')\n    else:\n        return redirect('/play')\n\n\n\n\n\n\n@application.route('/transfer_playback')\ndef transfer_playback():\n    device = request.args.get('device')\n    cache_handler = spotipy.cache_handler.CacheFileHandler(\n        cache_path=session_cache_path()\n    )\n    auth_manager = spotipy.oauth2.SpotifyOAuth(\n        scope=\"user-read-currently-playing playlist-modify-private,user-read-playback-state,user-modify-playback-state\",\n        cache_handler=cache_handler,\n        show_dialog=True,\n    )\n    sp = spotipy.Spotify(auth_manager=auth_manager)\n    track = sp.current_user_playing_track()\n\n    if not track is None:\n        try:\n            sp.transfer_playback(device, force_play=True)\n        except Exception as e:\n            return render_template(\"error.html\", error=str(e.args[2]))\n        return redirect('/play')\n    else:\n        return redirect('/play')\n\n\n\n\n@application.route('/set_playlist')\ndef set_playlist():\n    playlistURI = request.args.get('playlistURI')\n    cache_handler = spotipy.cache_handler.CacheFileHandler(\n        cache_path=session_cache_path()\n    )\n    auth_manager = spotipy.oauth2.SpotifyOAuth(\n        scope=\"user-read-currently-playing playlist-modify-private,user-read-playback-state,user-modify-playback-state\",\n        cache_handler=cache_handler,\n        show_dialog=True,\n    )\n    sp = spotipy.Spotify(auth_manager=auth_manager)\n    track = sp.current_user_playing_track()\n\n    if not track is None:\n        try:\n            sp.start_playback(device_id=None, context_uri=playlistURI, uris=None, offset=None, position_ms=None)\n        except Exception as e:\n            return render_template(\"error.html\", error=str(e.args[2]))\n        return redirect('/play')\n    else:\n        return redirect('/play')\n\n\n@application.route('/set_playback')\ndef set_playback():\n    URI = request.args.get('URI')\n    URI = URI.split()\n    cache_handler = spotipy.cache_handler.CacheFileHandler(\n        cache_path=session_cache_path()\n    )\n    auth_manager = spotipy.oauth2.SpotifyOAuth(\n        scope=\"user-read-currently-playing playlist-modify-private,user-read-playback-state,user-modify-playback-state\",\n        cache_handler=cache_handler,\n        show_dialog=True,\n    )\n    sp = spotipy.Spotify(auth_manager=auth_manager)\n    track = sp.current_user_playing_track()\n\n    if not track is None:\n        try:\n            sp.start_playback(device_id=None, context_uri=None, uris=URI, offset=None, position_ms=None)\n        except Exception as e:\n            return render_template(\"error.html\", error=str(e.args[2]))\n        return redirect('/play')\n    else:\n        return redirect('/play')\n\n\n\n\nclass searchthis():\n    def __init__(self, arg):\n        cache_handler = spotipy.cache_handler.CacheFileHandler(\n            cache_path=session_cache_path()\n        )\n        auth_manager = spotipy.oauth2.SpotifyOAuth(\n            scope=\"user-read-currently-playing playlist-modify-private,user-read-playback-state,user-modify-playback-state\",\n            cache_handler=cache_handler,\n            show_dialog=True,\n        )\n        sp = spotipy.Spotify(auth_manager=auth_manager)\n        track = sp.current_user_playing_track()\n\n        self.numberoftracks = 0\n        #print(currentDevice('id'))\n        #print(\"SP : \" + str(sp))\n        if not track is None:\n            try:\n                result = sp.search(arg, limit=12, offset=0, type='track,album,playlist', market=None)\n            except Exception as e:\n                return render_template(\"error.html\", error=str(e.args[2]))\n            else:\n                searches=0\n                itemnumber = 0\n                print(\"EL RESULTADO\" + str(result))\n                self.numberoftracks = numberoftracks = len(result['tracks']['items'])\n                self.numberofalbums = numberofalbums = len(result['albums']['items'])\n                self.numberofplaylists = numberofplaylists= len(result['playlists']['items'])\n                self.searches =searches = numberoftracks + numberofalbums + numberofplaylists\n\n\n                id=[]\n                search_type=[]\n                track_name=[]\n                uri=[]\n                track_URL=[]\n                artist_name=[]\n                artist_URL=[]\n                album_name=[]\n                album_release_date=[]\n                album_cover_image=[]\n                album_URL=[]\n                playlist_name=[]\n                playlist_description=[]\n\n\n\n\n                if numberoftracks > 0:\n                    for i in result['tracks']['items']:\n                        id.append(itemnumber)\n                        search_type.append(i['type'])\n                        track_name.append(i['name'])\n                        uri.append(i['uri'])\n                        track_URL.append(i['external_urls']['spotify'])\n                        artist_name.append(i['artists'][0]['name'])\n                        artist_URL.append(i['artists'][0]['external_urls']['spotify'])\n                        album_name.append(i['album']['name'])\n                        album_release_date.append(i['album']['release_date'])\n                        album_cover_image.append(i['album']['images'][0]['url'])\n                        album_URL.append(i['album']['external_urls']['spotify'])\n                        playlist_name.append(\"\")\n                        playlist_description.append(\"\")\n                        itemnumber = itemnumber + 1\n\n                else:\n                    print('No track results')\n\n                if numberofalbums > 0:\n                    for i in result['albums']['items']:\n                        id.append(itemnumber)\n                        search_type.append(i['type'])\n                        track_name.append(\"\")\n                        uri.append(i['uri'])\n                        track_URL.append(\"\")\n                        artist_name.append(i['artists'][0]['name'])\n                        artist_URL.append(i['artists'][0]['external_urls']['spotify'])\n                        album_name.append(i['name'])\n                        album_release_date.append(i['release_date'])\n                        album_cover_image.append(i['images'][0]['url'])\n                        album_URL.append(i['external_urls']['spotify'])\n                        playlist_name.append(\"\")\n                        playlist_description.append(\"\")\n                        itemnumber = itemnumber + 1\n\n\n                else:\n                        print('No album results')\n\n                if numberofplaylists > 0:\n                    for i in result['playlists']['items']:\n                        id.append(itemnumber)\n                        search_type.append(i['type'])\n                        track_name.append(\"\")\n                        uri.append(i['uri'])\n                        track_URL.append(\"\")\n                        artist_name.append(\"\")\n                        artist_URL.append(\"\")\n                        album_name.append(\"\")\n                        album_release_date.append(\"\")\n                        album_cover_image.append(i['images'][0]['url'])\n                        album_URL.append(i['external_urls']['spotify'])\n                        playlist_name.append(i['name'])\n                        playlist_description.append(i['description'])\n                        itemnumber = itemnumber + 1\n\n\n                else:\n                        print('No Playlist results')\n\n\n\n\n\n\n\n                if itemnumber > 0:\n                    JSONList = []\n                    JSONListTrack = []\n                    SearchJSONAlbum = []\n                    SearchJSONPlaylist = []\n\n                    for x in id:\n                        JSONList.append({\"id\" : x, \"search_type\" : search_type[x], \"track_name\": track_name[x], \"uri\": uri[x], \"track_URL\": track_URL[x], \"artist_name\": artist_name[x], \"artist_URL\": artist_URL[x], \"album_name\": album_name[x], \"album_release_date\": album_release_date[x], \"album_cover_image\": album_cover_image[x], \"album_URL\": album_URL[x], \"playlist_name\": playlist_name[x], \"playlist_description\": playlist_description[x] })\n\n                    JSONListTrack = [x for x in JSONList if x['search_type'] == 'track']\n                    JSONListAlbum = [x for x in JSONList if x['search_type'] == 'album']\n                    JSONListPlaylist = [x for x in JSONList if x['search_type'] == 'playlist']\n\n                    self.SearchJSON = json.dumps(JSONList)\n                    self.Track = json.dumps(JSONListTrack)\n                    self.Album = json.dumps(JSONListAlbum)\n                    self.Playlist = json.dumps(JSONListPlaylist)\n\n\n                else:\n                    self.SearchJSON = \"\"\n\n\n\n\n\n\n\n\n\n@application.route('/search')\ndef search():\n    search = request.args.get('search')\n    if search is not None:\n        JSONSearch = searchthis(search)\n        print(JSONSearch)\n        #print(\"TRACKs(\"+str(JSONSearch.numberoftracks) + \") \"  + JSONSearch.Track)\n        #print(\"Album(\"+str(JSONSearch.numberofalbums) + \") \" + JSONSearch.Album)\n        #print(\"Playlist(\"+str(JSONSearch.numberofplaylists) + \") \" +  JSONSearch.Playlist)\n\n\n\n        return render_template(\"search.html\", NumberOfTracks = JSONSearch.numberoftracks, JSONTrack = JSONSearch.Track, NumberOfAlbums = JSONSearch.numberofalbums, JSONAlbum = JSONSearch.Album, NumberOfPlaylists = JSONSearch.numberofplaylists, JSONPlaylist = JSONSearch.Playlist, searchresults=searchthis(search).searches, searchstring=search)\n    else:\n        return \"No search parameters\"\n\n\n\n\n\nif __name__ == \"__main__\":\n    print(CLIENT_ID)\n    print(os.getenv(\"SPOTIPY_CLIENT_ID\"))\n    application.run(\n        threaded=True,\n        port=8080\n    )\n
+===================================================================
+diff --git a/main.py b/main.py
+--- a/main.py	
++++ b/main.py	
+@@ -1,696 +1,16 @@
+-import os
+-from flask import Flask, session, request, redirect, render_template
+-from flask_session import Session
+-from spotipy.oauth2 import SpotifyOAuth
+-from dotenv import load_dotenv
+-import spotipy
+-import uuid
+-import pprint
+-import time
+-import json
+-import datetime
+-
+-load_dotenv()
+-
+-CLIENT_ID = os.environ["SPOTIPY_CLIENT_ID"] = str(os.getenv("CLIENT_ID"))
+-CLIENT_SECRET = os.environ["SPOTIPY_CLIENT_SECRET"] = str(os.getenv("CLIENT_SECRET"))
+-REDIRECT_URI = os.environ["SPOTIPY_REDIRECT_URI"] = str(os.getenv("REDIRECT_URI"))
+-
+-
+-application = Flask(__name__)
+-application.config["SECRET_KEY"] = os.urandom(64)
+-application.config["SESSION_TYPE"] = "filesystem"
+-application.config["SESSION_FILE_DIR"] = "./.flask_session/"
+-Session(application)
+-
+-caches_folder = "./.spotify_caches/"
+-if not os.path.exists(caches_folder):
+-    os.makedirs(caches_folder)
+-
+-
+-def session_cache_path():
+-    return caches_folder + session.get("uuid")
+-
+-
+-class get_devices:
+-    def __init__(self, res):
+-        self.strJSON = json.dumps(
+-            res, ensure_ascii=False, sort_keys=True, indent=2, separators=(",", ": ")
+-        )
+-        self.active_device_id = None
+-        self.active_device_volume_percent = None
+-        self.active_device_name = None
+-        self.active_device_type = None
+-
+-        for i in res["devices"]:
+-            self.device_id = i["id"]
+-            self.device_volume_percent = i["volume_percent"]
+-            self.device_name = i["name"]
+-            self.device_type = i["type"]
+-
+-            if i["is_active"] == True:
+-                self.active_device_id = i["id"]
+-                self.active_device_volume_percent = i["volume_percent"]
+-                self.active_device_name = i["name"]
+-                self.active_device_type = i["type"]
+-
+-
+-class currently_playing:
+-    def __init__(self, res, playlists):
+-        track = res
+-        playlists = playlists
+-        if not track is None:
+-            self.timestamp = track["timestamp"]
+-            self.progress_ms = track["progress_ms"]
+-            self.duration_ms = track["item"]["duration_ms"]
+-            self.is_playing = track["is_playing"]
+-            self.resuming = track["actions"]["disallows"]
+-            self.artist = track["item"]["album"]["artists"][0]["name"]
+-            self.artist_URL = track["item"]["album"]["artists"][0]["external_urls"][
+-                "spotify"
+-            ]
+-            self.album_URL = track["item"]["album"]["external_urls"]["spotify"]
+-            self.song_URL = track["item"]["external_urls"]["spotify"]
+-            self.album = track["item"]["album"]["name"]
+-            self.song = track["item"]["name"]
+-            self.album_image_big = track["item"]["album"]["images"][0]["url"]
+-            self.album_image_medium = track["item"]["album"]["images"][1]["url"]
+-            self.album_image_small = track["item"]["album"]["images"][2]["url"]
+-            self.playlists = json.dumps(
+-                playlists,
+-                ensure_ascii=False,
+-                sort_keys=True,
+-                indent=2,
+-                separators=(",", ": "),
+-            )
+-
+-
+-@application.route("/")
+-def index():
+-    if not session.get("uuid"):
+-        # Step 1. Visitor is unknown, give random ID
+-        session["uuid"] = str(uuid.uuid4())
+-
+-    cache_handler = spotipy.cache_handler.CacheFileHandler(
+-        cache_path=session_cache_path()
+-    )
+-    auth_manager = spotipy.oauth2.SpotifyOAuth(
+-        scope="user-read-currently-playing playlist-modify-private,user-read-playback-state,user-modify-playback-state",
+-        cache_handler=cache_handler,
+-        show_dialog=True,
+-    )
+-
+-    if request.args.get("code"):
+-        # Step 3. Being redirected from Spotify auth page
+-        auth_manager.get_access_token(request.args.get("code"))
+-        return redirect("/")
+-
+-    if not auth_manager.validate_token(cache_handler.get_cached_token()):
+-        # Step 2. Display sign in link when no token
+-        auth_url = auth_manager.get_authorize_url()
+-        return f'<h2><a href="{auth_url}">Sign in</a></h2>'
+-
+-    # Step 4. Signed in, display data
+-    spotify = spotipy.Spotify(auth_manager=auth_manager)
+-    return (
+-        f'<h2>Hi {spotify.me()["display_name"]}, '
+-        f'<small><a href="/sign_out">[sign out]<a/></small></h2>'
+-        f'<a href="/playlists">my playlists</a> | '
+-        f'<a href="/currently_playing2">currently playing</a> | '
+-        f'<a href="/current_user">me</a>'
+-    )
+-
+-
+-@application.route("/sign_out")
+-def sign_out():
+-    try:
+-        # Remove the CACHE file (.cache-test) so that a new user can authorize.
+-        os.remove(session_cache_path())
+-        session.clear()
+-    except OSError as e:
+-        print("Error: %s - %s." % (e.filename, e.strerror))
+-    return redirect("/")
+-
+-
+-@application.route("/playlists")
+-def playlists():
+-    cache_handler = spotipy.cache_handler.CacheFileHandler(
+-        cache_path=session_cache_path()
+-    )
+-    auth_manager = spotipy.oauth2.SpotifyOAuth(cache_handler=cache_handler)
+-    if not auth_manager.validate_token(cache_handler.get_cached_token()):
+-        return redirect("/")
+-
+-    spotify = spotipy.Spotify(auth_manager=auth_manager)
+-    return spotify.current_user_playlists()
+-
+-
+-@application.route("/currently_playing2")
+-def currently_playing2():
+-    cache_handler = spotipy.cache_handler.CacheFileHandler(
+-        cache_path=session_cache_path()
+-    )
+-    auth_manager = spotipy.oauth2.SpotifyOAuth(cache_handler=cache_handler)
+-    if not auth_manager.validate_token(cache_handler.get_cached_token()):
+-        return redirect("/")
+-    spotify = spotipy.Spotify(auth_manager=auth_manager)
+-    track = spotify.current_user_playing_track()
+-    if not track is None:
+-        return track
+-    return "No track currently playing."
+-
+-
+-@application.route("/current_user")
+-def current_user():
+-    cache_handler = spotipy.cache_handler.CacheFileHandler(
+-        cache_path=session_cache_path()
+-    )
+-    auth_manager = spotipy.oauth2.SpotifyOAuth(cache_handler=cache_handler)
+-    if not auth_manager.validate_token(cache_handler.get_cached_token()):
+-        return redirect("/")
+-    spotify = spotipy.Spotify(auth_manager=auth_manager)
+-    return spotify.current_user()
+-
+-
+-@application.route("/index.html")
+-def index_html():
+-    return render_template("index.html")
+-
+-
+-@application.route("/play")
+-def play():
+-    # Step 1. Visitor is unknown, give random ID
+-    if not session.get("uuid"):
+-        # Step 1. Visitor is unknown, give random ID
+-        session["uuid"] = str(uuid.uuid4())
+-    print("USER  ID " + session["uuid"])
+-
+-    cache_handler = spotipy.cache_handler.CacheFileHandler(
+-        cache_path=session_cache_path()
+-    )
+-    auth_manager = spotipy.oauth2.SpotifyOAuth(
+-        scope="user-read-currently-playing playlist-modify-private,user-read-playback-state,user-modify-playback-state",
+-        cache_handler=cache_handler,
+-        show_dialog=True,
+-    )
+-    if request.args.get("code"):
+-        # Step 3. Being redirected from Spotify auth page
+-        auth_manager.get_cached_token(request.args.get("code"))
+-        return redirect("/play")
+-
+-    if not auth_manager.validate_token(cache_handler.get_cached_token()):
+-        # Step 2. Display sign in link when no token
+-        print("NOT AUTH")
+-        auth_url = auth_manager.get_authorize_url()
+-        #return f'<h2><a href="{auth_url}">Sign in</a></h2>'
+-
+-        return render_template("authorize.html",auth_url=auth_url)
+-    sp = spotipy.Spotify(auth_manager=auth_manager)
+-    track = sp.current_user_playing_track()
+-
+-    if not track is None:
+-        print("si hay track")
+-        device = get_devices(sp.devices())
+-        print("Aqui", str(sp.current_user_playing_track()))
+-
+-        playing = currently_playing(sp.current_user_playing_track(),
+-            sp.current_user_playlists(limit=50, offset=0))
+-        if hasattr(device, "active_device_volume_percent"):
+-            volume = device.active_device_volume_percent
+-        else:
+-            volume = 100
+-        print(playing.duration_ms)
+-        print(playing.progress_ms)
+-        remaining_s = int((playing.duration_ms - playing.progress_ms) / 1000)
+-        if playing.is_playing == False:
+-            remaining_s = 3600
+-
+-        return render_template(
+-            "spotify.html",
+-            AlbumImgURL=playing.album_image_big,
+-            AlbumURL=playing.album_URL,
+-            AlbumName=playing.album,
+-            Artist=playing.artist,
+-            ArtistURL=playing.artist_URL,
+-            Song=playing.song,
+-            SongURL=playing.song_URL,
+-            Timestamp=playing.timestamp,
+-            Duration=int(playing.duration_ms / 1000),
+-            Progress=int(playing.progress_ms / 1000),
+-            IsPlaying=playing.is_playing,
+-            Resuming=playing.resuming,
+-            Volume=volume,
+-            Refresh=remaining_s,
+-            JSONDevices=device.strJSON,
+-            JSONPlaylists=playing.playlists,
+-        )
+-    else:
+-        return render_template("noplaying.html")
+-
+-
+-@application.route("/next_track")
+-def next_track():
+-    cache_handler = spotipy.cache_handler.CacheFileHandler(
+-        cache_path=session_cache_path()
+-    )
+-    auth_manager = spotipy.oauth2.SpotifyOAuth(
+-        scope="user-read-currently-playing playlist-modify-private,user-read-playback-state,user-modify-playback-state",
+-        cache_handler=cache_handler,
+-        show_dialog=True,
+-    )
+-    sp = spotipy.Spotify(auth_manager=auth_manager)
+-    track = sp.current_user_playing_track()
+-    if not track is None:
+-        device = get_devices(sp.devices())
+-        print(device.device_id)
+-        try:
+-            sp.next_track(device_id=False)
+-        except Exception as e:
+-            return render_template("error.html", error=str(e.args[2]))
+-
+-            #return str(e.args[2])
+-        #except:
+-         #   return "Spotify Premium required"
+-
+-        return redirect("/play")
+-    return render_template("noplaying.html")
+-
+-
+-@application.route('/previous_track')
+-def previous_track():
+-    cache_handler = spotipy.cache_handler.CacheFileHandler(
+-        cache_path=session_cache_path()
+-    )
+-    auth_manager = spotipy.oauth2.SpotifyOAuth(
+-        scope="user-read-currently-playing playlist-modify-private,user-read-playback-state,user-modify-playback-state",
+-        cache_handler=cache_handler,
+-        show_dialog=True,
+-    )
+-    sp = spotipy.Spotify(auth_manager=auth_manager)
+-    track = sp.current_user_playing_track()
+-    if not track is None:
+-        device = get_devices(sp.devices())
+-        print(device.device_id)
+-        try:
+-            sp.previous_track(device_id=False)
+-        except Exception as e:
+-            return render_template("error.html", error=str(e.args[2]))
+-        return redirect("/play")
+-    return render_template("noplaying.html")
+-
+-
+-@application.route('/pause')
+-def pause():
+-    cache_handler = spotipy.cache_handler.CacheFileHandler(
+-        cache_path=session_cache_path()
+-    )
+-    auth_manager = spotipy.oauth2.SpotifyOAuth(
+-        scope="user-read-currently-playing playlist-modify-private,user-read-playback-state,user-modify-playback-state",
+-        cache_handler=cache_handler,
+-        show_dialog=True,
+-    )
+-    sp = spotipy.Spotify(auth_manager=auth_manager)
+-    track = sp.current_user_playing_track()
+-    if not track is None:
+-        if track['is_playing'] == True:
+-            try:
+-                sp.pause_playback(device_id=False)
+-            except Exception as e:
+-                return render_template("error.html", error=str(e.args[2]))
+-
+-
+-
+-        else:
+-            try:
+-                sp.start_playback(device_id=False)
+-            except Exception as e:
+-                return render_template("error.html", error=str(e.args[2]))
+-        return redirect('/play')
+-    return "No track currently playing."
+-
+-@application.route('/volume_up')
+-def volume_up():
+-    cache_handler = spotipy.cache_handler.CacheFileHandler(
+-        cache_path=session_cache_path()
+-    )
+-    auth_manager = spotipy.oauth2.SpotifyOAuth(
+-        scope="user-read-currently-playing playlist-modify-private,user-read-playback-state,user-modify-playback-state",
+-        cache_handler=cache_handler,
+-        show_dialog=True,
+-    )
+-    sp = spotipy.Spotify(auth_manager=auth_manager)
+-    track = sp.current_user_playing_track()
+-    device = get_devices(sp.devices())
+-
+-    if not track is None:
+-        CurrentVolume = device.active_device_volume_percent + 10
+-        try:
+-            sp.volume(CurrentVolume, device.active_device_id)
+-        except Exception as e:
+-            return render_template("error.html", error=str(e.args[2]))
+-        print(CurrentVolume)
+-        return redirect('/play')
+-    else:
+-        return "No track is currently playing"
+-
+-
+-@application.route('/volume_down')
+-def volume_down():
+-    cache_handler = spotipy.cache_handler.CacheFileHandler(
+-        cache_path=session_cache_path()
+-    )
+-    auth_manager = spotipy.oauth2.SpotifyOAuth(
+-        scope="user-read-currently-playing playlist-modify-private,user-read-playback-state,user-modify-playback-state",
+-        cache_handler=cache_handler,
+-        show_dialog=True,
+-    )
+-    sp = spotipy.Spotify(auth_manager=auth_manager)
+-    track = sp.current_user_playing_track()
+-    device = get_devices(sp.devices())
+-
+-    if not track is None:
+-        CurrentVolume = device.active_device_volume_percent - 10
+-        try:
+-            sp.volume(CurrentVolume, device.active_device_id)
+-        except Exception as e:
+-            return render_template("error.html", error=str(e.args[2]))
+-
+-
+-        print(CurrentVolume)
+-        return redirect('/play')
+-    else:
+-        return "No track is currently playing"
+-
+-
+-@application.route('/set_volume')
+-def set_volume():
+-    volume = int(request.args.get('volume'))
+-    print("setting volume: " + str(volume))
+-    cache_handler = spotipy.cache_handler.CacheFileHandler(
+-        cache_path=session_cache_path()
+-    )
+-    auth_manager = spotipy.oauth2.SpotifyOAuth(
+-        scope="user-read-currently-playing playlist-modify-private,user-read-playback-state,user-modify-playback-state",
+-        cache_handler=cache_handler,
+-        show_dialog=True,
+-    )
+-    sp = spotipy.Spotify(auth_manager=auth_manager)
+-    track = sp.current_user_playing_track()
+-    device = get_devices(sp.devices())
+-
+-    if not track is None:
+-        print("setting volume: " + str(volume) + " on device: " + str(device.active_device_name))
+-        try:
+-            sp.volume(volume, device.active_device_id)
+-        except Exception as e:
+-            return render_template("error.html", error=str(e.args[2]))
+-        time.sleep(1)
+-        return redirect('/play')
+-    else:
+-        return redirect('/play')
+-
+-
+-@application.route('/seek_track')
+-def seek_track():
+-    position_ms = int(request.args.get('position'))
+-    position_ms = position_ms * 1000
+-    print(position_ms)
+-    cache_handler = spotipy.cache_handler.CacheFileHandler(
+-        cache_path=session_cache_path()
+-    )
+-    auth_manager = spotipy.oauth2.SpotifyOAuth(
+-        scope="user-read-currently-playing playlist-modify-private,user-read-playback-state,user-modify-playback-state",
+-        cache_handler=cache_handler,
+-        show_dialog=True,
+-    )
+-    sp = spotipy.Spotify(auth_manager=auth_manager)
+-    track = sp.current_user_playing_track()
+-    device = get_devices(sp.devices())
+-
+-    if not track is None:
+-
+-        try:
+-            sp.seek_track(position_ms, device.active_device_id)
+-
+-        except Exception as e:
+-            return render_template("error.html", error=str(e.args[2]))
+-        time.sleep(1)
+-        return redirect('/play')
+-    else:
+-        return redirect('/play')
+-
+-
+-
+-
+-
+-
+-@application.route('/transfer_playback')
+-def transfer_playback():
+-    device = request.args.get('device')
+-    cache_handler = spotipy.cache_handler.CacheFileHandler(
+-        cache_path=session_cache_path()
+-    )
+-    auth_manager = spotipy.oauth2.SpotifyOAuth(
+-        scope="user-read-currently-playing playlist-modify-private,user-read-playback-state,user-modify-playback-state",
+-        cache_handler=cache_handler,
+-        show_dialog=True,
+-    )
+-    sp = spotipy.Spotify(auth_manager=auth_manager)
+-    track = sp.current_user_playing_track()
+-
+-    if not track is None:
+-        try:
+-            sp.transfer_playback(device, force_play=True)
+-        except Exception as e:
+-            return render_template("error.html", error=str(e.args[2]))
+-        return redirect('/play')
+-    else:
+-        return redirect('/play')
+-
+-
+-
+-
+-@application.route('/set_playlist')
+-def set_playlist():
+-    playlistURI = request.args.get('playlistURI')
+-    cache_handler = spotipy.cache_handler.CacheFileHandler(
+-        cache_path=session_cache_path()
+-    )
+-    auth_manager = spotipy.oauth2.SpotifyOAuth(
+-        scope="user-read-currently-playing playlist-modify-private,user-read-playback-state,user-modify-playback-state",
+-        cache_handler=cache_handler,
+-        show_dialog=True,
+-    )
+-    sp = spotipy.Spotify(auth_manager=auth_manager)
+-    track = sp.current_user_playing_track()
+-
+-    if not track is None:
+-        try:
+-            sp.start_playback(device_id=None, context_uri=playlistURI, uris=None, offset=None, position_ms=None)
+-        except Exception as e:
+-            return render_template("error.html", error=str(e.args[2]))
+-        return redirect('/play')
+-    else:
+-        return redirect('/play')
+-
+-
+-@application.route('/set_playback')
+-def set_playback():
+-    URI = request.args.get('URI')
+-    URI = URI.split()
+-    cache_handler = spotipy.cache_handler.CacheFileHandler(
+-        cache_path=session_cache_path()
+-    )
+-    auth_manager = spotipy.oauth2.SpotifyOAuth(
+-        scope="user-read-currently-playing playlist-modify-private,user-read-playback-state,user-modify-playback-state",
+-        cache_handler=cache_handler,
+-        show_dialog=True,
+-    )
+-    sp = spotipy.Spotify(auth_manager=auth_manager)
+-    track = sp.current_user_playing_track()
+-
+-    if not track is None:
+-        try:
+-            sp.start_playback(device_id=None, context_uri=None, uris=URI, offset=None, position_ms=None)
+-        except Exception as e:
+-            return render_template("error.html", error=str(e.args[2]))
+-        return redirect('/play')
+-    else:
+-        return redirect('/play')
+-
+-
+-
+-
+-class searchthis():
+-    def __init__(self, arg):
+-        cache_handler = spotipy.cache_handler.CacheFileHandler(
+-            cache_path=session_cache_path()
+-        )
+-        auth_manager = spotipy.oauth2.SpotifyOAuth(
+-            scope="user-read-currently-playing playlist-modify-private,user-read-playback-state,user-modify-playback-state",
+-            cache_handler=cache_handler,
+-            show_dialog=True,
+-        )
+-        sp = spotipy.Spotify(auth_manager=auth_manager)
+-        track = sp.current_user_playing_track()
+-
+-        self.numberoftracks = 0
+-        #print(currentDevice('id'))
+-        #print("SP : " + str(sp))
+-        if not track is None:
+-            try:
+-                result = sp.search(arg, limit=12, offset=0, type='track,album,playlist', market=None)
+-            except Exception as e:
+-                return render_template("error.html", error=str(e.args[2]))
+-            else:
+-                searches=0
+-                itemnumber = 0
+-                print("EL RESULTADO" + str(result))
+-                self.numberoftracks = numberoftracks = len(result['tracks']['items'])
+-                self.numberofalbums = numberofalbums = len(result['albums']['items'])
+-                self.numberofplaylists = numberofplaylists= len(result['playlists']['items'])
+-                self.searches =searches = numberoftracks + numberofalbums + numberofplaylists
+-
+-
+-                id=[]
+-                search_type=[]
+-                track_name=[]
+-                uri=[]
+-                track_URL=[]
+-                artist_name=[]
+-                artist_URL=[]
+-                album_name=[]
+-                album_release_date=[]
+-                album_cover_image=[]
+-                album_URL=[]
+-                playlist_name=[]
+-                playlist_description=[]
+-
+-
+-
+-
+-                if numberoftracks > 0:
+-                    for i in result['tracks']['items']:
+-                        id.append(itemnumber)
+-                        search_type.append(i['type'])
+-                        track_name.append(i['name'])
+-                        uri.append(i['uri'])
+-                        track_URL.append(i['external_urls']['spotify'])
+-                        artist_name.append(i['artists'][0]['name'])
+-                        artist_URL.append(i['artists'][0]['external_urls']['spotify'])
+-                        album_name.append(i['album']['name'])
+-                        album_release_date.append(i['album']['release_date'])
+-                        album_cover_image.append(i['album']['images'][0]['url'])
+-                        album_URL.append(i['album']['external_urls']['spotify'])
+-                        playlist_name.append("")
+-                        playlist_description.append("")
+-                        itemnumber = itemnumber + 1
+-
+-                else:
+-                    print('No track results')
+-
+-                if numberofalbums > 0:
+-                    for i in result['albums']['items']:
+-                        id.append(itemnumber)
+-                        search_type.append(i['type'])
+-                        track_name.append("")
+-                        uri.append(i['uri'])
+-                        track_URL.append("")
+-                        artist_name.append(i['artists'][0]['name'])
+-                        artist_URL.append(i['artists'][0]['external_urls']['spotify'])
+-                        album_name.append(i['name'])
+-                        album_release_date.append(i['release_date'])
+-                        album_cover_image.append(i['images'][0]['url'])
+-                        album_URL.append(i['external_urls']['spotify'])
+-                        playlist_name.append("")
+-                        playlist_description.append("")
+-                        itemnumber = itemnumber + 1
+-
+-
+-                else:
+-                        print('No album results')
+-
+-                if numberofplaylists > 0:
+-                    for i in result['playlists']['items']:
+-                        id.append(itemnumber)
+-                        search_type.append(i['type'])
+-                        track_name.append("")
+-                        uri.append(i['uri'])
+-                        track_URL.append("")
+-                        artist_name.append("")
+-                        artist_URL.append("")
+-                        album_name.append("")
+-                        album_release_date.append("")
+-                        album_cover_image.append(i['images'][0]['url'])
+-                        album_URL.append(i['external_urls']['spotify'])
+-                        playlist_name.append(i['name'])
+-                        playlist_description.append(i['description'])
+-                        itemnumber = itemnumber + 1
+-
+-
+-                else:
+-                        print('No Playlist results')
+-
+-
+-
+-
+-
+-
+-
+-                if itemnumber > 0:
+-                    JSONList = []
+-                    JSONListTrack = []
+-                    SearchJSONAlbum = []
+-                    SearchJSONPlaylist = []
+-
+-                    for x in id:
+-                        JSONList.append({"id" : x, "search_type" : search_type[x], "track_name": track_name[x], "uri": uri[x], "track_URL": track_URL[x], "artist_name": artist_name[x], "artist_URL": artist_URL[x], "album_name": album_name[x], "album_release_date": album_release_date[x], "album_cover_image": album_cover_image[x], "album_URL": album_URL[x], "playlist_name": playlist_name[x], "playlist_description": playlist_description[x] })
+-
+-                    JSONListTrack = [x for x in JSONList if x['search_type'] == 'track']
+-                    JSONListAlbum = [x for x in JSONList if x['search_type'] == 'album']
+-                    JSONListPlaylist = [x for x in JSONList if x['search_type'] == 'playlist']
+-
+-                    self.SearchJSON = json.dumps(JSONList)
+-                    self.Track = json.dumps(JSONListTrack)
+-                    self.Album = json.dumps(JSONListAlbum)
+-                    self.Playlist = json.dumps(JSONListPlaylist)
+-
+-
+-                else:
+-                    self.SearchJSON = ""
+-
+-
+-
++# This is a sample Python script.
+ 
++# Press ⌃R to execute it or replace it with your code.
++# Press Double ⇧ to search everywhere for classes, files, tool windows, actions, and settings.
+ 
+ 
++def print_hi(name):
++    # Use a breakpoint in the code line below to debug your script.
++    print(f'Hi, {name}')  # Press ⌘F8 to toggle the breakpoint.
+ 
+ 
++# Press the green button in the gutter to run the script.
++if __name__ == '__main__':
++    print_hi('PyCharm')
+ 
+-@application.route('/search')
+-def search():
+-    search = request.args.get('search')
+-    if search is not None:
+-        JSONSearch = searchthis(search)
+-        print(JSONSearch)
+-        #print("TRACKs("+str(JSONSearch.numberoftracks) + ") "  + JSONSearch.Track)
+-        #print("Album("+str(JSONSearch.numberofalbums) + ") " + JSONSearch.Album)
+-        #print("Playlist("+str(JSONSearch.numberofplaylists) + ") " +  JSONSearch.Playlist)
+-
+-
+-
+-        return render_template("search.html", NumberOfTracks = JSONSearch.numberoftracks, JSONTrack = JSONSearch.Track, NumberOfAlbums = JSONSearch.numberofalbums, JSONAlbum = JSONSearch.Album, NumberOfPlaylists = JSONSearch.numberofplaylists, JSONPlaylist = JSONSearch.Playlist, searchresults=searchthis(search).searches, searchstring=search)
+-    else:
+-        return "No search parameters"
+-
+-
+-
+-
+-
+-if __name__ == "__main__":
+-    print(CLIENT_ID)
+-    print(os.getenv("SPOTIPY_CLIENT_ID"))
+-    application.run(
+-        threaded=True,
+-        port=8080
+-    )
++# See PyCharm help at https://www.jetbrains.com/help/pycharm/
+Index: .gitignore
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>.env\n/.env\n/.spotify_caches/\n/.flask_session/\n
+===================================================================
+diff --git a/.gitignore b/.gitignore
+--- a/.gitignore	
++++ b/.gitignore	
+@@ -2,3 +2,4 @@
+ /.env
+ /.spotify_caches/
+ /.flask_session/
++/.spotify_caches/
