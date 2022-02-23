@@ -1,3 +1,15 @@
+'''
+    File name: main.py
+    Author: Guillermo Campos
+    Date created: 2/23/2022
+    Date last modified: 2/23/2022
+    Python Version: 3.8
+'''
+
+__author__ = "Guillermo Campos"
+__email__ = "camposguillermo@hotmail.com"
+__status__ = "Production"
+
 import os
 from flask import Flask, session, request, redirect, render_template
 from flask_session import Session
