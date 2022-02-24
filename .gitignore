@@ -2,3 +2,4 @@
 /.env
 /.spotify_caches/
 /.flask_session/
+/.idea/
