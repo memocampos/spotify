@@ -14,7 +14,7 @@ import os
 from flask import Flask, session, request, redirect, render_template
 from flask_session import Session
 from spotipy.oauth2 import SpotifyOAuth
-from dotenv import load_dotenv
+#from dotenv import load_dotenv
 import spotipy
 import uuid
 import pprint
@@ -22,7 +22,7 @@ import time
 import json
 import datetime
 
-load_dotenv()
+#load_dotenv()
 
 CLIENT_ID = os.environ["SPOTIPY_CLIENT_ID"] = str(os.getenv("SPOTIPY_CLIENT_ID"))
 CLIENT_SECRET = os.environ["SPOTIPY_CLIENT_SECRET"] = str(os.getenv("SPOTIPY_CLIENT_SECRET"))
