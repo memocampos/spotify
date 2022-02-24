@@ -700,7 +700,7 @@ def search():
 
 
 if __name__ == "__main__":
-
+    print("Run it on : " + str(REDIRECT_URI)+ "/index.html")
     application.run(
         threaded=True,
         port=8080
