@@ -700,9 +700,7 @@ def search():
 
 
 if __name__ == "__main__":
-    print(os.environ.get('SPOTIPY_CLIENT_ID'))
-    print(os.getenv("SPOTIPY_CLIENT_ID"))
-    print(REDIRECT_URI)
+
     application.run(
         threaded=True,
         port=8080
