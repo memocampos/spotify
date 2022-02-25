@@ -3,9 +3,9 @@ by **Guillermo Campos**
 -->  Control Spotify playback with python spotipy 
 
 
-| ![screenshot2](/static/images/spotify/Screenshots/Screnshot2.png "screenshot2")  |  ![screenshot1](/static/images/spotify/Screenshots/Screnshot1.png "screenshot1") |  ![screenshot3](/static/images/spotify/Screenshots/Screnshot3.png "screenshot3") |
+| ![screenshot2](./static/images/spotify/Screenshots/Screnshot2.png "screenshot2")  |  ![screenshot1](./static/images/spotify/Screenshots/Screnshot1.png "screenshot1") |  ![screenshot3](./static/images/spotify/Screenshots/Screnshot3.png "screenshot3") |
 | ------------ | ------------ | ------------ |
-|![screenshot4](/static/images/spotify/Screenshots/Screnshot4.png "screenshot4")  | ![screenshot5](/static/images/spotify/Screenshots/Screnshot5.png "screenshot5")  |  ![screenshot6](/static/images/spotify/Screenshots/Screnshot6.png "screenshot6") |
+|![screenshot4](./static/images/spotify/Screenshots/Screnshot4.png "screenshot4")  | ![screenshot5](./static/images/spotify/Screenshots/Screnshot5.png "screenshot5")  |  ![screenshot6](./static/images/spotify/Screenshots/Screnshot6.png "screenshot6") |
 
 
 
